@@ -1,20 +1,22 @@
 # discord-mass-role-bot
 
-## The situation
+## The story
 
-In February 2025, a marketing campaign my team ran went wrong in a way that left tens of thousands of Discord accounts needing a role applied (or removed) manually — something Discord's own UI has no bulk tool for, and the audit trail existed only as a spreadsheet of user IDs. With the clock running, I built a bot to do it: read a CSV, resolve each user, apply the role, and not fall over if it got interrupted partway through 60-70k accounts.
+In January 2025, DIN ran a testnet campaign — complete a few onchain tasks, claim some test tokens, get a Discord role once you're done. It went well: 293K+ people took part, over a million test tokens claimed. DIN posted the wrap-up here: [x.com/din_lol_/status/1887049389388259620](https://x.com/din_lol_/status/1887049389388259620?s=20).
 
-It ran in production against real runs of ~40,000 users at a time, checkpointing its progress so a restart wouldn't mean starting over. It did the job. This repo is that bot, as it shipped — written for correctness and resumability under time pressure, not for elegance.
+Except the role part never actually happened. Whoever set up the reward on the platform's side forgot to wire the Discord role into it, so people finished every task, got nothing, and came straight to the server asking what was going on. Fair enough — I'd be annoyed too.
+
+I was on the team dealing with it, and there was no "give this role to tens of thousands of people" button anywhere — not in Discord, not in the platform we were using. What we did have was a spreadsheet of every completed user's Discord ID. So I put together a bot that could take that CSV and just work through it: resolve each user, apply the role, and not lose its place if it got interrupted 20,000 users in.
+
+It ran for real against batches of ~40,000 users and got everyone their role. Below are actual screenshots from that week — the CSV formatting issues I hit on Feb 7 while testing (Excel loves turning long IDs into scientific notation), and the bot grinding through tens of thousands of real accounts a few days later.
 
 <img src="assets/test-run-success.png" alt="Discord message from 07-02-2025 showing !bulkroles add with a CSV of user IDs and the bot replying Operation completed, Successful operations: 5, Errors: 0" width="850">
 
 <img src="assets/test-run-error-log.png" alt="Discord message from 07-02-2025 showing the bot catching malformed scientific-notation user IDs in a test CSV and logging Invalid user ID for each one" width="850">
 
-Early tests on 2025-02-07, working out CSV formatting issues (Excel's auto-conversion of long IDs to scientific notation) before the real run.
-
 ## What it does
 
-A single Discord bot command, `!massroles`, takes a CSV of user IDs and a role name, then adds or removes that role for every user in the file — in chunks, with progress reporting, and with enough state on disk to resume if it's interrupted.
+One command, `!massroles`. Attach a CSV of Discord user IDs, tell it a role and whether to add or remove it, and it takes care of the rest — in chunks, with live progress, and with enough state saved on disk to pick back up if it gets interrupted.
 
 ```
 !massroles <add|remove> <role_name> [start_index]
