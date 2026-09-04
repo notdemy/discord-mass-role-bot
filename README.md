@@ -1,14 +1,18 @@
 # discord-mass-role-bot
 
-## The story
+## Problem Statement
 
-In January 2025, DIN ran a testnet campaign — complete a few onchain tasks, claim some test tokens, get a Discord role once you're done. It went well: 293K+ people took part, over a million test tokens claimed. DIN posted the wrap-up here: [x.com/din_lol_/status/1887049389388259620](https://x.com/din_lol_/status/1887049389388259620?s=20).
+In January 2025, DIN ran a testnet campaign — complete a few onchain tasks, claim some test tokens, get a Discord role once you're done. It went well: 293K+ people took part, over a million test tokens claimed. DIN posted the wrap-up on X:
+
+<img src="assets/campaign-tweet.png" alt="DIN's campaign wrap-up tweet: 293.15K participants, 1,156,960 test tokens claimed, and the line 'Now that the campaign is over, we'll start distributing Discord roles.'" width="480">
 
 Except the role part never actually happened. Whoever set up the reward on the platform's side forgot to wire the Discord role into it, so people finished every task, got nothing, and came straight to the server asking what was going on. Fair enough — I'd be annoyed too.
 
+## Solution
+
 I was on the team dealing with it, and there was no "give this role to tens of thousands of people" button anywhere — not in Discord, not in the platform we were using. What we did have was a spreadsheet of every completed user's Discord ID. So I put together a bot that could take that CSV and just work through it: resolve each user, apply the role, and not lose its place if it got interrupted 20,000 users in.
 
-It ran for real against batches of ~40,000 users and got everyone their role. Below are actual screenshots from that week — the CSV formatting issues I hit on Feb 7 while testing (Excel loves turning long IDs into scientific notation), and the bot grinding through tens of thousands of real accounts a few days later.
+Below are two real test runs from Feb 7, while I was still working out the CSV format — Excel loves turning long Discord IDs into scientific notation, and the bot needed to catch that before it went anywhere near the real list.
 
 <img src="assets/test-run-success.png" alt="Discord message from 07-02-2025 showing !bulkroles add with a CSV of user IDs and the bot replying Operation completed, Successful operations: 5, Errors: 0" width="850">
 
@@ -44,12 +48,9 @@ Discord message → !massroles action role [start_index]
 
 A Flask thread (`keep_alive()`) runs the whole time independently of either command, for hosts that expect an HTTP port to stay open.
 
-## Real-world numbers
+## Proof of Work
 
-From actual production runs (Feb 2025):
-
-- Processed batches of **~39,948** and **~38,961** users in single runs
-- Progress and ETA were tracked live per batch
+Live progress from the actual production runs, ~4K and ~40K users:
 
 <img src="assets/progress-100.png" alt="Progress: 100 / 3,968 users, estimated time remaining 92.8 minutes" width="850">
 
