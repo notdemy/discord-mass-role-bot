@@ -37,17 +37,18 @@ class RoleManager:
         self.checkpoint_file = f'checkpoint_{guild.id}.json'
         self.batch_size = 1000
         self.chunk_size = 10000
+        self._role_cache = {}
 
     async def load_checkpoint(self):
         try:
             with open(self.checkpoint_file, 'r') as f:
                 return json.load(f)
         except FileNotFoundError:
-            return {'processed_users': [], 'total_success': 0, 'total_errors': 0}
+            return {'processed_entries': [], 'total_success': 0, 'total_errors': 0}
 
-    async def save_checkpoint(self, processed_users, total_success, total_errors):
+    async def save_checkpoint(self, processed_entries, total_success, total_errors):
         checkpoint = {
-            'processed_users': processed_users,
+            'processed_entries': processed_entries,
             'total_success': total_success,
             'total_errors': total_errors,
             'timestamp': datetime.now().isoformat()
@@ -55,30 +56,45 @@ class RoleManager:
         with open(self.checkpoint_file, 'w') as f:
             json.dump(checkpoint, f)
 
-    async def process_chunk(self, users_chunk, role, action, status_message, start_idx, total_users):
+    def resolve_role(self, role_name):
+        if role_name not in self._role_cache:
+            self._role_cache[role_name] = discord.utils.get(self.guild.roles, name=role_name)
+        return self._role_cache[role_name]
+
+    async def process_chunk(self, entries_chunk, action, status_message, start_idx, total_entries):
         success_count = 0
         error_count = 0
         error_log = []
         start_time = datetime.now()
 
-        for i in range(0, len(users_chunk), self.batch_size):
-            batch = users_chunk[i:i + self.batch_size]
+        for i in range(0, len(entries_chunk), self.batch_size):
+            batch = entries_chunk[i:i + self.batch_size]
             try:
                 tasks = []
-                members_to_update = []
+                updates = []  # (member, role) pairs
 
-                # First try to get members from cache
-                for user_id in batch:
+                for user_id, role_name in batch:
                     try:
+                        role = self.resolve_role(role_name)
+                        if not role:
+                            error_log.append(f"Role not found: '{role_name}' (user {user_id})")
+                            error_count += 1
+                            continue
+
+                        if role.position >= self.guild.me.top_role.position:
+                            error_log.append(f"Can't manage role '{role_name}' — it's above my own top role (user {user_id})")
+                            error_count += 1
+                            continue
+
                         member = self.guild.get_member(int(user_id))
                         if not member:
                             member = await self.guild.fetch_member(int(user_id))
 
                         if member:
                             if action == 'add' and role not in member.roles:
-                                members_to_update.append(member)
+                                updates.append((member, role))
                             elif action == 'remove' and role in member.roles:
-                                members_to_update.append(member)
+                                updates.append((member, role))
                         else:
                             error_log.append(f"Member not found: {user_id}")
                             error_count += 1
@@ -90,27 +106,27 @@ class RoleManager:
                         error_count += 1
 
                 # Bulk role updates
-                if members_to_update:
+                if updates:
                     if action == 'add':
-                        tasks = [member.add_roles(role) for member in members_to_update]
+                        tasks = [member.add_roles(role) for member, role in updates]
                     else:
-                        tasks = [member.remove_roles(role) for member in members_to_update]
+                        tasks = [member.remove_roles(role) for member, role in updates]
 
                     results = await asyncio.gather(*tasks, return_exceptions=True)
                     success_count += sum(1 for r in results if not isinstance(r, Exception))
                     error_count += sum(1 for r in results if isinstance(r, Exception))
 
-                # Update status every 100 users
+                # Update status every 100 entries
                 if i % 100 == 0:
                     total_processed = start_idx + i + len(batch)
                     elapsed_time = (datetime.now() - start_time).total_seconds()
-                    users_per_second = total_processed / elapsed_time if elapsed_time > 0 else 0
-                    remaining_users = total_users - total_processed
-                    est_time_remaining = remaining_users / users_per_second if users_per_second > 0 else 0
+                    entries_per_second = total_processed / elapsed_time if elapsed_time > 0 else 0
+                    remaining_entries = total_entries - total_processed
+                    est_time_remaining = remaining_entries / entries_per_second if entries_per_second > 0 else 0
 
                     await status_message.edit(content=
                         f"```\n"
-                        f"Progress: {total_processed:,} / {total_users:,} users\n"
+                        f"Progress: {total_processed:,} / {total_entries:,} users\n"
                         f"Successful operations: {success_count:,}\n"
                         f"Errors: {error_count:,}\n"
                         f"Estimated time remaining: {est_time_remaining/60:.1f} minutes\n"
@@ -125,29 +141,18 @@ class RoleManager:
 
 @bot.command()
 @commands.has_permissions(manage_roles=True)
-async def massroles(ctx, action: str, role_name: str, start_index: int = 0):
+async def bulkroles(ctx, action: str, start_index: int = 0):
     """
     Process roles for large number of users
-    Usage: !massroles <add/remove> <role_name> [start_index]
+    Usage: !bulkroles <add/remove> [start_index]
+    Attach a CSV with columns: user_id,role_name
     """
     if action.lower() not in ['add', 'remove']:
         await ctx.send("Invalid action! Use 'add' or 'remove'")
         return
 
     if not ctx.message.attachments:
-        await ctx.send("Please attach a CSV file!")
-        return
-
-    role = discord.utils.get(ctx.guild.roles, name=role_name)
-    if not role:
-        await ctx.send(f"Role '{role_name}' not found!")
-        return
-
-    if role.position >= ctx.guild.me.top_role.position:
-        await ctx.send(
-            f"I can't manage the role '{role_name}' because it's higher than "
-            f"or equal to my own top role. Move my role above it and try again."
-        )
+        await ctx.send("Please attach a CSV file with columns: user_id,role_name")
         return
 
     manager = RoleManager(ctx.guild)
@@ -162,38 +167,44 @@ async def massroles(ctx, action: str, role_name: str, start_index: int = 0):
         csv_reader = csv.reader(csv_str)
         next(csv_reader, None)  # Skip header
 
-        user_ids = [row[0].strip() for row in csv_reader if len(row) > 0 and row[0].strip().isdigit()]
+        entries = [
+            (row[0].strip(), row[1].strip())
+            for row in csv_reader
+            if len(row) > 1 and row[0].strip().isdigit() and row[1].strip()
+        ]
 
-        processed_set = set(checkpoint['processed_users'])
+        processed_set = set(checkpoint['processed_entries'])
         if processed_set:
-            skipped = len(user_ids) - len([u for u in user_ids if u not in processed_set])
-            user_ids = [u for u in user_ids if u not in processed_set]
-            await ctx.send(f"Resuming: skipping {skipped:,} already-processed users from checkpoint.")
+            entry_keys = [f"{uid}:{role}" for uid, role in entries]
+            skipped = sum(1 for key in entry_keys if key in processed_set)
+            entries = [e for e, key in zip(entries, entry_keys) if key not in processed_set]
+            if skipped:
+                await ctx.send(f"Resuming: skipping {skipped:,} already-processed entries from checkpoint.")
 
-        total_users = len(user_ids)
+        total_entries = len(entries)
 
-        if total_users == 0:
-            await ctx.send("No users left to process!")
+        if total_entries == 0:
+            await ctx.send("No entries left to process!")
             return
 
-        if start_index >= total_users:
-            await ctx.send("Start index is larger than remaining number of users!")
+        if start_index >= total_entries:
+            await ctx.send("Start index is larger than remaining number of entries!")
             return
 
         status_message = await ctx.send("```\nInitializing role operation...```")
-        while chunk_start < total_users:
-            chunk_end = min(chunk_start + manager.chunk_size, total_users)
-            current_chunk = user_ids[chunk_start:chunk_end]
+        while chunk_start < total_entries:
+            chunk_end = min(chunk_start + manager.chunk_size, total_entries)
+            current_chunk = entries[chunk_start:chunk_end]
 
             success_count, error_count, error_log = await manager.process_chunk(
-                current_chunk, role, action, status_message, chunk_start, total_users
+                current_chunk, action, status_message, chunk_start, total_entries
             )
 
-            checkpoint['processed_users'].extend(current_chunk)
+            checkpoint['processed_entries'].extend(f"{uid}:{role}" for uid, role in current_chunk)
             checkpoint['total_success'] += success_count
             checkpoint['total_errors'] += error_count
             await manager.save_checkpoint(
-                checkpoint['processed_users'],
+                checkpoint['processed_entries'],
                 checkpoint['total_success'],
                 checkpoint['total_errors']
             )
@@ -216,10 +227,10 @@ async def massroles(ctx, action: str, role_name: str, start_index: int = 0):
     except Exception as e:
         await ctx.send(f"An error occurred: {str(e)}")
         await ctx.send(f"You can resume from index {chunk_start} using:\n"
-                      f"!massroles {action} {role_name} {chunk_start}")
+                      f"!bulkroles {action} {chunk_start}")
 
-@massroles.error
-async def massroles_error(ctx, error):
+@bulkroles.error
+async def bulkroles_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):
         await ctx.send("You need the 'Manage Roles' permission to use this command.")
     else:

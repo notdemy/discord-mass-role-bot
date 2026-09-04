@@ -12,8 +12,3 @@ __pycache__/
 .DS_Store
 Thumbs.db
 desktop.ini
-
-# Raw screenshots kept out of repo root — cleaned/renamed copies live in assets/
-Screenshot 2025-02-07*.png
-Screenshot 2025-02-08*.png
-Screenshot 2026-09-04*.png

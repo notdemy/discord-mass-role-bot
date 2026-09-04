@@ -1,5 +1,8 @@
 # discord-mass-role-bot
 
+> [!NOTE]
+> Built for a one-time job, to meet that specific requirement, not as a polished, reusable tool. It can be optimized a lot further (see **Known limitations** below), but it does the job if you want to use it as-is.
+
 ## Problem Statement
 
 In January 2025, DIN ran a testnet campaign. Complete a few onchain tasks, claim some test tokens, get a Discord role once you're done. It went well. Over 293K people took part, and more than a million test tokens were claimed. DIN posted the wrap-up on X:
@@ -22,16 +25,16 @@ Here are two real test runs from Feb 7, while I was still fixing the CSV format.
 
 ## What it does
 
-One command, `!massroles`. Attach a CSV of Discord user IDs, tell it a role and whether to add or remove it, and it takes care of the rest — in chunks, with live progress, and with enough state saved on disk to pick back up if it gets interrupted.
+One command, `!bulkroles`. Attach a CSV with each user's ID and the role they should get, tell it whether to add or remove, and it works through the whole list — in chunks, with live progress, and with enough state saved on disk to pick back up if it gets interrupted.
 
 ```
-!massroles <add|remove> <role_name> [start_index]
+!bulkroles <add|remove> [start_index]
 ```
 
-- Attach a CSV (`user_id` in the first column) to the command message.
-- Users are processed in chunks of 10,000, each chunk split into batches of 1,000.
+- Attach a CSV with two columns: `user_id,role_name`. Each row can name a different role.
+- Entries are processed in chunks of 10,000, each chunk split into batches of 1,000.
 - Progress, success/error counts, and an ETA are posted back to the channel and updated live.
-- Every completed chunk is checkpointed to `checkpoint_<guild_id>.json`. If the bot restarts mid-run, the next `!massroles` call automatically skips everyone already processed.
+- Every completed chunk is checkpointed to `checkpoint_<guild_id>.json`, keyed by `user_id:role_name`. If the bot restarts mid-run, the next `!bulkroles` call automatically skips everything already done.
 - `!shutdown` cleanly closes the bot (admin-only).
 
 ## Proof of Work
@@ -56,10 +59,10 @@ Requires the **Server Members** and **Message Content** privileged intents enabl
 
 ## Known limitations
 
-This was written to solve an active incident, not to be a polished tool. If I were building it again:
+If I were building it again:
 
 - **No self-imposed rate limit.** Each batch fires up to 1,000 role-update requests concurrently via `asyncio.gather`; pacing is left entirely to discord.py's reactive rate-limit handling rather than a controlled cap (e.g. a `Semaphore`).
-- **Checkpoints only every 10,000 users**, not every batch — an interruption mid-chunk can cost up to 1,000 users of re-work.
+- **Checkpoints only every 10,000 entries**, not every batch — an interruption mid-chunk can cost up to 1,000 entries of re-work.
 - **No dry-run / preview mode** — the first CSV you attach is the one that runs.
 
 ## Stack
