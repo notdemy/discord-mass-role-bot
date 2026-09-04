@@ -7,8 +7,8 @@ In February 2025, a marketing campaign my team ran went wrong in a way that left
 It ran in production against real runs of ~40,000 users at a time, checkpointing its progress so a restart wouldn't mean starting over. It did the job. This repo is that bot, as it shipped — written for correctness and resumability under time pressure, not for elegance.
 
 <p>
-  <img src="assets/test-run-success.png" alt="Discord message from 07-02-2025 showing !bulkroles add with a CSV of user IDs and the bot replying Operation completed, Successful operations: 5, Errors: 0" width="420">
-  <img src="assets/test-run-error-log.png" alt="Discord message from 07-02-2025 showing the bot catching malformed scientific-notation user IDs in a test CSV and logging Invalid user ID for each one" width="420">
+  <img src="assets/test-run-success.png" alt="Discord message from 07-02-2025 showing !bulkroles add with a CSV of user IDs and the bot replying Operation completed, Successful operations: 5, Errors: 0" width="600">
+  <img src="assets/test-run-error-log.png" alt="Discord message from 07-02-2025 showing the bot catching malformed scientific-notation user IDs in a test CSV and logging Invalid user ID for each one" width="600">
 </p>
 
 Early tests on 2025-02-07, working out CSV formatting issues (Excel's auto-conversion of long IDs to scientific notation) before the real run.
@@ -51,9 +51,9 @@ From actual production runs (Feb 2025):
 - Progress and ETA were tracked live per batch
 
 <p>
-  <img src="assets/progress-100.png" alt="Progress: 100 / 3,968 users, estimated time remaining 92.8 minutes" width="270">
-  <img src="assets/progress-1000.png" alt="Progress: 1,000 / 39,948 users, 16 errors, estimated time remaining 678.1 minutes" width="270">
-  <img src="assets/progress-27000.png" alt="Progress: 27,000 / 38,961 users, 112 errors, estimated time remaining 54.2 minutes" width="270">
+  <img src="assets/progress-100.png" alt="Progress: 100 / 3,968 users, estimated time remaining 92.8 minutes" width="400">
+  <img src="assets/progress-1000.png" alt="Progress: 1,000 / 39,948 users, 16 errors, estimated time remaining 678.1 minutes" width="400">
+  <img src="assets/progress-27000.png" alt="Progress: 27,000 / 38,961 users, 112 errors, estimated time remaining 54.2 minutes" width="400">
 </p>
 
 ## Setup
