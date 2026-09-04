@@ -1,0 +1,17 @@
+# Secrets
+.env
+
+# Runtime state (guild-specific, shouldn't ship with the repo)
+checkpoint_*.json
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Old incident-era screenshots (real user IDs / username) — excluded from repo, see README demo plan
+Screenshot 2025-02-07*.png
+Screenshot 2025-02-08*.png
