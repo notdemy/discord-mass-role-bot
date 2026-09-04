@@ -6,6 +6,13 @@ In February 2025, a marketing campaign my team ran went wrong in a way that left
 
 It ran in production against real runs of ~40,000 users at a time, checkpointing its progress so a restart wouldn't mean starting over. It did the job. This repo is that bot, as it shipped — written for correctness and resumability under time pressure, not for elegance.
 
+<p>
+  <img src="assets/test-run-success.png" alt="Discord message from 07-02-2025 showing !bulkroles add with a CSV of user IDs and the bot replying Operation completed, Successful operations: 5, Errors: 0" width="420">
+  <img src="assets/test-run-error-log.png" alt="Discord message from 07-02-2025 showing the bot catching malformed scientific-notation user IDs in a test CSV and logging Invalid user ID for each one" width="420">
+</p>
+
+Early tests on 2025-02-07, working out CSV formatting issues (Excel's auto-conversion of long IDs to scientific notation) before the real run.
+
 ## What it does
 
 A single Discord bot command, `!massroles`, takes a CSV of user IDs and a role name, then adds or removes that role for every user in the file — in chunks, with progress reporting, and with enough state on disk to resume if it's interrupted.
