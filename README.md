@@ -2,17 +2,19 @@
 
 ## Problem Statement
 
-In January 2025, DIN ran a testnet campaign — complete a few onchain tasks, claim some test tokens, get a Discord role once you're done. It went well: 293K+ people took part, over a million test tokens claimed. DIN posted the wrap-up on X:
+In January 2025, DIN ran a testnet campaign. Complete a few onchain tasks, claim some test tokens, get a Discord role once you're done. It went well. Over 293K people took part, and more than a million test tokens were claimed. DIN posted the wrap-up on X:
 
 <img src="assets/campaign-tweet.png" alt="DIN's campaign wrap-up tweet: 293.15K participants, 1,156,960 test tokens claimed, and the line 'Now that the campaign is over, we'll start distributing Discord roles.'" width="480">
 
-Except the role part never actually happened. Whoever set up the reward on the platform's side forgot to wire the Discord role into it, so people finished every task, got nothing, and came straight to the server asking what was going on. Fair enough — I'd be annoyed too.
+[x.com/din_lol_/status/1887049389388259620](https://x.com/din_lol_/status/1887049389388259620?s=20)
+
+Except the role never actually got given out. Whoever set up the reward on the platform's side forgot to wire the Discord role into it. People finished every task, got nothing, and came straight to the server asking what happened. Fair enough.
 
 ## Solution
 
-I was on the team dealing with it, and there was no "give this role to tens of thousands of people" button anywhere — not in Discord, not in the platform we were using. What we did have was a spreadsheet of every completed user's Discord ID. So I put together a bot that could take that CSV and just work through it: resolve each user, apply the role, and not lose its place if it got interrupted 20,000 users in.
+I was on the team handling it. There was no bulk button to give a role to tens of thousands of people, not in Discord, not in the platform we used. What we did have was a spreadsheet of every completed user's Discord ID. So I built a bot to take that CSV and work through it: resolve each user, apply the role, and pick back up if it gets interrupted partway through.
 
-Below are two real test runs from Feb 7, while I was still working out the CSV format — Excel loves turning long Discord IDs into scientific notation, and the bot needed to catch that before it went anywhere near the real list.
+Here are two real test runs from Feb 7, while I was still fixing the CSV format. Excel kept turning long Discord IDs into scientific notation, and the bot needed to catch that before running on the real list.
 
 <img src="assets/test-run-success.png" alt="Discord message from 07-02-2025 showing !bulkroles add with a CSV of user IDs and the bot replying Operation completed, Successful operations: 5, Errors: 0" width="850">
 
@@ -31,22 +33,6 @@ One command, `!massroles`. Attach a CSV of Discord user IDs, tell it a role and 
 - Progress, success/error counts, and an ETA are posted back to the channel and updated live.
 - Every completed chunk is checkpointed to `checkpoint_<guild_id>.json`. If the bot restarts mid-run, the next `!massroles` call automatically skips everyone already processed.
 - `!shutdown` cleanly closes the bot (admin-only).
-
-## Flow
-
-```
-Discord message → !massroles action role [start_index]
-  → permission check (Manage Roles) → reply & stop if missing
-  → validate: CSV attached, role exists, role below bot's own top role → reply & stop if not
-  → parse CSV, load checkpoint, drop already-processed IDs
-  → loop: next chunk (10k) → next batch (1k) → resolve members → apply role → update status
-      (checkpoint saved after each chunk)
-  → final summary posted
-```
-
-`!shutdown` is a separate, short path: admin check → farewell message → `bot.close()`.
-
-A Flask thread (`keep_alive()`) runs the whole time independently of either command, for hosts that expect an HTTP port to stay open.
 
 ## Proof of Work
 
